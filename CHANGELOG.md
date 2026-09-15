@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **License: MIT → CC0 1.0 Universal (public domain).** The codebase is
+  now free for all uses without any conditions. The CC0 dedication
+  applies only to the code and docs in this repository; third-party
+  data and tile assets remain under their upstream licences (see
+  README "Credits").
+
 ## [1.0.0] - 2026-09-15
 
 ### Added
@@ -19,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     band with vertical reference, applicability window, and any
     free-form ГД ГВА notes.
   - Quick-jump buttons for Sofia, Plovdiv, Varna, Burgas, all-BG.
+  - Explicit per-tile-layer attribution strings (BGMountains CC-BY-NC-SA,
+    OpenTopoMap CC-BY-SA, OpenStreetMap ODbL) plus a "Credits" section
+    in the README.
 - `regen_geojson.py`: converts the flat ГД ГВА JSON into a Leaflet-ready
   GeoJSON FeatureCollection. Circles are approximated as 64-vertex
   polygons; `uSpaceClass` is filtered out (always NO/no).

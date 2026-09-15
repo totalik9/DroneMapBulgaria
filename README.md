@@ -108,18 +108,54 @@ If a future schema change breaks the conversion, edit `regen_geojson.py`:
 The `drones_bg.html` constants `TODAY` / `TODAY_BG` should be bumped each time
 you regenerate, so the "inactive today" filter and legend dates stay accurate.
 
-## Data source
+## Credits
+
+This project stands on the work of several upstream communities:
+
+### Basemap tiles
+
+The map uses three optional basemaps. Each carries its own licence and
+attribution (rendered by Leaflet's default attribution control in the
+bottom-right of the map):
+
+| Basemap      | Tile URL                                            | Licence / credit                                                |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------- |
+| **BGMountains** | `https://bgmtile.kade.si/{z}/{x}/{y}.png` (default) | Tiles © [BGMountains](https://bgmountains.org/), CC-BY-NC-SA 2.5 |
+| **OpenTopoMap** | `https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png`   | Map data © OpenTopoMap, CC-BY-SA; tiles via BGMountains, CC-BY-NC-SA 2.5 |
+| **OpenStreetMap** | `https://tile.openstreetmap.org/{z}/{x}/{y}.png`   | © OpenStreetMap contributors, ODbL                              |
+
+BGMountains is a community-built map set of the Bulgarian mountains
+covering trails, contours, shelters, and peak names. If you find it
+useful, please support the project at <https://bgmountains.org/>.
+
+> BGMountains is published under **CC-BY-NC-SA 2.5** — *noncommercial*.
+> This codebase is MIT and is itself noncommercial, so the share-alike
+> applies on attribution only. If you fork and commercialise the
+> product, swap the BGMountains layer out for another basemap.
+
+### Zone data
 
 All zone geometry, restrictions, and messages come from
-[caa.bg](https://www.caa.bg/) — Bulgarian Civil Aviation Authority. The
-official feed lives under
+[caa.bg](https://www.caa.bg/) — Bulgarian Civil Aviation Authority.
+The official feed lives under
 `/bg/category/633/7062` and is republished periodically as
-`bgr_zones_DDMMYYYY.zip`.
+`bgr_zones_DDMMYYYY.zip`. This project is not affiliated with ГД ГВА.
 
-This project is not affiliated with ГД ГВА. Always cross-check the official
-source before flying — the map is informational only.
+### Software
+
+The map page renders with [Leaflet](https://leafletjs.com/) (BSD-2)
+loaded from `unpkg.com` with an SRI `integrity` hash pinned to the
+version in use.
 
 ## License
 
-MIT for the code in this repository. The underlying zone data is © ГД ГВА and
-remains subject to whatever license they publish it under.
+This project is dedicated to the public domain under
+[Creative Commons CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/).
+You can copy, modify, distribute, and use this code and documentation
+for any purpose — commercial or non-commercial — without asking
+permission.
+
+The CC0 dedication applies **only to the code and docs in this
+repository**. Third-party data and assets (ГД ГВА zone data,
+BGMountains / OpenTopoMap / OpenStreetMap tiles, Leaflet) remain under
+their own upstream licences — see the **Credits** section above.
