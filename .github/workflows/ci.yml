@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-lint:
+    name: Python (regen_geojson.py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile-check (py_compile)
+        run: |
+          python -m py_compile regen_geojson.py
+          echo "OK: regen_geojson.py compiles cleanly"
+
+      - name: Smoke-run on a synthetic ГД ГВА-style input
+        run: |
+          python - <<'PY'
+          import json, subprocess, sys, tempfile, pathlib
+          # Minimal hand-rolled ГД ГВА-shaped input: one Circle feature + one Polygon feature.
+          sample = {
+            "features": [
+              {
+                "type": "Feature",
+                "id": "Z-CIRCLE",
+                "restriction": "PROHIBITED",
+                "reason": ["SECURITY"],
+                "applicability": [{"permanent": "YES"}],
+                "message": "",
+                "uSpaceClass": "NO",
+                "geometry": [
+                  {
+                    "horizontalProjection": {"type": "Circle",
+                                             "center": [23.3219, 42.6977],
+                                             "radius": 1500},
+                    "lowerLimit": 0, "lowerVerticalReference": "AGL",
+                    "upperLimit": 120, "upperVerticalReference": "AGL",
+                  }
+                ],
+              },
+              {
+                "type": "Feature",
+                "id": "Z-POLY",
+                "restriction": "CONDITIONAL",
+                "reason": ["NATURE"],
+                "applicability": [{"permanent": "YES"}],
+                "message": "",
+                "geometry": [
+                  {
+                    "horizontalProjection": {
+                      "type": "Polygon",
+                      "coordinates": [[[27.0, 43.0],[28.0, 43.0],[28.0, 44.0],[27.0, 44.0],[27.0, 43.0]]],
+                    },
+                    "lowerLimit": 0, "lowerVerticalReference": "AGL",
+                    "upperLimit": 500, "upperVerticalReference": "AMSL",
+                  }
+                ],
+              },
+            ]
+          }
+          with tempfile.TemporaryDirectory() as td:
+              ip = pathlib.Path(td) / "in.json"
+              op = pathlib.Path(td) / "out.json"
+              ip.write_text(json.dumps(sample, ensure_ascii=False), encoding="utf-8")
+              subprocess.check_call([sys.executable, "regen_geojson.py", str(ip), str(op)])
+              out = json.loads(op.read_text(encoding="utf-8"))
+              assert out["type"] == "FeatureCollection"
+              assert len(out["features"]) == 2
+              for f in out["features"]:
+                  assert f["geometry"]["type"] == "Polygon"
+                  ring = f["geometry"]["coordinates"][0]
+                  assert ring[0] == ring[-1], "polygon must be closed"
+                  assert "uSpaceClass" not in f["properties"]
+              circle = out["features"][0]["geometry"]["coordinates"][0]
+              assert len(circle) == 65, f"circle ring expected 65 verts (64+close), got {len(circle)}"
+              print("OK: 2 features written, circles ~64-vertex polygon, uSpaceClass dropped")
+          PY
+
+  html-structure:
+    name: HTML (drones_bg.html)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag / SRI balance check
+        run: |
+          python - <<'PY'
+          import re, pathlib, sys
+          html = pathlib.Path("drones_bg.html").read_text(encoding="utf-8")
+          css = re.findall(r'<link[^>]*integrity="([^"]+)"[^>]*>', html)
+          js  = re.findall(r'<script[^>]*src=[^>]*integrity="([^"]+)"[^>]*>', html)
+          if not css or not js:
+              print("WARN: no SRI hash found on a Leaflet asset", file=sys.stderr)
+          # Crossorigin must accompany integrity
+          for m in re.finditer(r'<link[^>]*>', html):
+              tag = m.group(0)
+              if 'integrity=' in tag and 'crossorigin=' not in tag:
+                  sys.exit(f"FAIL: <link> with integrity but no crossorigin: {tag}")
+          for m in re.finditer(r'<script[^>]*src=[^>]*>', html):
+              tag = m.group(0)
+              if 'integrity=' in tag and 'crossorigin=' not in tag:
+                  sys.exit(f"FAIL: <script> with integrity but no crossorigin: {tag}")
+          print(f"OK: {len(css)} stylesheet(s) + {len(js)} script(s) with SRI")
+          PY
+
+  gitignore-check:
+    name: .gitignore coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify data artifacts are untracked
+        run: |
+          ! git ls-files | grep -Eq '^zones_geo\.json$|^bgr_zones_.*\.zip$|^bgr_zones_.*\.json$' \
+            && echo "OK: zones_geo.json + bgr_zones_*.{zip,json} not tracked" \
+            || (echo "FAIL: data artifacts should not be tracked"; git ls-files | grep -E '^zones_geo\.json$|^bgr_zones_.*'; exit 1)
