@@ -1,0 +1,29 @@
+# Data artifacts produced by update_zones.bat — regenerated on demand
+bgr_zones_*.zip
+bgr_zones_*.json
+zones_geo.json
+
+# Temporary scratch files written by update_zones.bat / PowerShell helpers
+_caa_link.txt
+_caa_err.txt
+_port.txt
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Local config that shouldn't leak
+.env
+*.local

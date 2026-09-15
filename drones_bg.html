@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<title>Дрон зони БГ — 31.08.2026</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+<style>
+  html, body { margin:0; height:100%; font-family:system-ui,Segoe UI,Arial,sans-serif; }
+  #map { width:100%; height:100vh; background:#222; }
+  .panel {
+    position:absolute; top:10px; right:10px; z-index:1000;
+    background:#fff; padding:10px 12px; border-radius:8px;
+    box-shadow:0 2px 8px rgba(0,0,0,.25); font-size:13px;
+    max-width:280px; line-height:1.45;
+  }
+  .panel h1 { margin:0 0 6px; font-size:14px; }
+  .panel h2 { margin:8px 0 4px; font-size:12px; text-transform:uppercase; color:#555; letter-spacing:.5px; }
+  .panel label { display:block; cursor:pointer; padding:2px 0; }
+  .panel .count { color:#666; font-size:11px; }
+  .legend {
+    position:absolute; bottom:14px; left:14px; z-index:1000;
+    background:#fff; padding:8px 10px; border-radius:8px;
+    box-shadow:0 2px 8px rgba(0,0,0,.25); font-size:12px; line-height:1.55;
+  }
+  .legend i { display:inline-block; width:14px; height:14px; margin-right:6px; vertical-align:middle;
+    border:1px solid #5556; opacity:.7; }
+  .leaflet-popup-content { font-size:13px; max-width:280px; }
+  .popup-restriction { font-weight:bold; }
+  .popup-id { color:#888; font-size:11px; }
+  .popup-msg { color:#444; margin-top:4px; font-style:italic; }
+  .popup-appl { color:#a00; font-size:11px; margin-top:4px; }
+  .badge { display:inline-block; padding:1px 6px; border-radius:4px;
+    font-size:10px; color:#fff; margin-right:4px; vertical-align:middle; }
+  .badge-PROHIBITED { background:#c0392b; }
+  .badge-REQ_AUTHORISATION { background:#e67e22; }
+  .badge-CONDITIONAL { background:#f1c40f; color:#333; }
+  .badge-SENSITIVE { background:#8e44ad; }
+  .badge-PRIVACY { background:#2c3e50; }
+  .badge-NATURE { background:#27ae60; }
+  .badge-AIR_TRAFFIC { background:#2980b9; }
+  .badge-FOREIGN_TERRITORY { background:#7f8c8d; }
+  .popup-comments {
+    background:#fffbe6; border-left:3px solid #e6c200;
+    padding:6px 8px; margin-top:6px; font-size:11px;
+    color:#5a4a00; border-radius:3px;
+  }
+  .popup-comments b { color:#3a2a00; }
+  .popup-comments i { color:#888; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <h1>Базови карти</h1>
+  <label><input type="radio" name="basemap" value="bgmountains" checked>
+    BGMountains <span class="count">(bgmtile.kade.si)</span></label>
+  <label><input type="radio" name="basemap" value="opentopo">
+    OpenTopoMap <span class="count">(от bgmountains.org)</span></label>
+  <label><input type="radio" name="basemap" value="osm">
+    OpenStreetMap <span class="count">(стандартна)</span></label>
+  <h2>Дрон зони (31.08.2026)</h2>
+  <label><input type="checkbox" id="z-prohibited" checked>
+    <span class="badge badge-PROHIBITED">PROHIBITED</span> <span id="c-prohibited" class="count"></span></label>
+  <label><input type="checkbox" id="z-reqauth" checked>
+    <span class="badge badge-REQ_AUTHORISATION">REQ_AUTHORISATION</span> <span id="c-reqauth" class="count"></span></label>
+  <label><input type="checkbox" id="z-conditional" checked>
+    <span class="badge badge-CONDITIONAL">CONDITIONAL</span> <span id="c-conditional" class="count"></span></label>
+  <label><input type="checkbox" id="z-inactive" checked>
+    <span style="display:inline-block;width:14px;height:2px;background:#999;margin-right:4px;border-top:2px dotted #999;vertical-align:middle"></span>
+    Неактивни днес <span id="c-inactive" class="count"></span></label>
+  <label><input type="checkbox" id="z-comments">
+    📝 Само зони с коментари <span id="c-comments" class="count"></span></label>
+  <h2>Фокус</h2>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <button onclick="flyTo(42.6977,23.3219,'София')" style="flex:1">София</button>
+    <button onclick="flyTo(42.1497,24.7497,'Пловдив')" style="flex:1">Пловдив</button>
+    <button onclick="flyTo(43.2141,27.9147,'Варна')" style="flex:1">Варна</button>
+    <button onclick="flyTo(42.6977,25.3158,'Бургас')" style="flex:1">Бургас</button>
+    <button onclick="flyTo(42.0,25.0,'Цяла България')" style="flex:1;flex-basis:100%">Цяла България</button>
+  </div>
+</div>
+
+<div class="legend">
+  <div><i style="background:#c0392b"></i>PROHIBITED — забранено</div>
+  <div><i style="background:#e67e22"></i>REQ_AUTHORISATION — нужно разрешение</div>
+  <div><i style="background:#f1c40f"></i>CONDITIONAL — условно</div>
+  <div><i style="background:transparent;border:1px dashed #999"></i>Неактивни днес (H010/H011)</div>
+  <div style="color:#666;margin-top:4px;font-size:11px;">Източник: ГД ГВА • bgr_zones_30072026.json</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+const TODAY = '2026-08-31';
+const TODAY_BG = '31 август 2026';
+
+const COLORS = {
+  PROHIBITED:      '#c0392b',
+  REQ_AUTHORISATION:'#e67e22',
+  CONDITIONAL:     '#f1c40f',
+  INACTIVE:        '#888888',
+};
+
+// "Comment-like" content detection: anything not in the standard template set
+const STD_MESSAGES = new Set([
+  'Зона за сигурност забранена за полети на БЛС от земната повърхност до височина 120 метра',
+  'Зона, забранена за полети на БЛС от земната повърхност до височина 120 метра',
+  'Забраняват се полетите с безпилотни летателни системи в установената зона.',
+  'Забраняват се полетите с безпилотни летателни системи в установената зона, освен с тези на заявителя.',
+  'Полети в тази зона над 50м могат да се изпълняват само след разрешение от ГД ГВА. Минимален интервал от време за подаване на заявление е 7 работни дни.',
+  '',
+]);
+// codes that ARE the official short codes (ICAO/LB / TRA / D / И) — NOT comments
+const CODE_RE = /^(LBS[A-Z]+|LBSF|LBPD|LBWN|LBBG|LBGO|LBAM|LBBB|LBBL|LBBO|LBBQ|LBDA|LBDB|LBDR|LBGD|LBGR|LBHT|LBKL|LBLS|LBMA|LBMO|LBPN|LBPR|LBRD|LBRS|LBSA|LBSB|LBSK|LBTS|LBWB|LBKJ|LBSP|LBIA|LBPL|LBPG|LBDH|LBLN|LBSV|LBPM|LBSY|LBRO|LBTS|LBR|LBP|TRA\d|TRA ?\d+[A-Z]?|D\d+|И\d+|LBR\d+|H\d+|AVIONAMS|EMKO|VMZ|LUK|TOPLO|PORT|HAIL|MIL|GAS|NEK|MP|DR|ARSENAL|ELOVITSA|SENSITIVE|FT|ERM|RAO|VIK|AEC|ICGB|Brikel|Studena|Maritsa|Beli Iskar|VIK Burgas|Toplo Pleven|Samel|Optix|PORT VARNA|PORT BURGAS|SOF VODA)$/i;
+
+function isFreeFormComment(s) {
+  if (!s) return false;
+  const t = s.trim();
+  if (!t) return false;
+  if (STD_MESSAGES.has(t)) return false;
+  // If it's a pure short code (token or "TRA32A", "И38", etc.), NOT a comment
+  if (/^[A-ZА-Я0-9]+$/.test(t) && t.length <= 8) return false;
+  if (/^LB[A-Z]{2,4}$/.test(t)) return false;
+  if (/^TRA ?\d+[A-Z]?$/.test(t)) return false;
+  if (/^D\d+[A-Z]?$/.test(t)) return false;
+  if (/^И\d+$/.test(t)) return false;
+  if (/^H\d+$/.test(t)) return false;
+  // Explicitly known "free-form" indicators
+  if (/[а-яё]{4,}.*\s+.*[а-яё]{4,}/i.test(t)) return true; // Two Cyrillic words
+  if (/[a-z]{3,}\s+[a-z]{3,}/i.test(t) && !CODE_RE.test(t)) {
+    // Latin multi-word that's not a known code (e.g. "DR Zone", "PORT BURGAS", "Beli Iskar")
+    return true;
+  }
+  if (/"/.test(t)) return true; // Quoted names (e.g. "Даскал Атанасово")
+  if (/\(LB[A-Z]+\)/.test(t)) return true; // Airport ICAO annotation
+  if (/Стратегически|Критично|Пречиствателна|еминистерс|Уведомява|еминистерс|предизвестие|зона|летище|БВЛ|Зоната|еминистерс/i.test(t)) return true;
+  return false;
+}
+
+function zoneHasComments(f) {
+  const p = f.properties;
+  if (isFreeFormComment(p.message)) return true;
+  if (isFreeFormComment(p.otherReasonInfo)) return true;
+  // Also flag zones with non-permanent applicability (those always carry a comment-like date range)
+  for (const a of (p.applicability||[])) {
+    if (a.permanent !== 'YES') return true;
+  }
+  // And English / unusual single-line messages ("Warning! ...", "UAS operations...")
+  if (/^[A-Z][a-z]/.test((p.message||'').trim())) return true;
+  return false;
+}
+
+function collectComments(f) {
+  const p = f.properties;
+  const items = [];
+  if (isFreeFormComment(p.message)) {
+    items.push({ label:'Официално съобщение', text:p.message });
+  }
+  if (isFreeFormComment(p.otherReasonInfo)) {
+    // multi-line: split, trim each, drop empties
+    const lines = p.otherReasonInfo.split('\n').map(s=>s.trim()).filter(Boolean);
+    for (const line of lines) items.push({ label:'Бележка от ГД ГВА', text:line });
+  }
+  for (const a of (p.applicability||[])) {
+    if (a.permanent !== 'YES') {
+      const s = (a.startDateTime||'').slice(0,10) || '?';
+      const e = (a.endDateTime||'').slice(0,10) || '?';
+      items.push({ label:'Период на активност', text:`от ${s} до ${e}` });
+    }
+  }
+  return items;
+}
+
+function popup(f, includeComments) {
+  const p = f.properties;
+  const restr = p.restriction;
+  const reasons = (p.reason || []).map(r =>
+    `<span class="badge badge-${r}">${r}</span>`).join('');
+  const appTxt = (p.applicability || []).map(a => {
+    if (a.permanent === 'YES') return 'постоянна';
+    return `от ${a.startDateTime||'?'} до ${a.endDateTime||'?'}`;
+  }).join('; ');
+  let applHtml = '';
+  if (!p._active) {
+    applHtml = `<div class="popup-appl">⚠ Не е активна на ${TODAY_BG} (${appTxt})</div>`;
+  } else if (appTxt !== 'постоянна') {
+    applHtml = `<div class="popup-appl">⏱ Активна: ${appTxt}</div>`;
+  }
+  let commentsHtml = '';
+  if (includeComments) {
+    const items = collectComments(f);
+    if (items.length) {
+      commentsHtml = `<div class="popup-comments"><b>📝 Бележки/коментари</b> (${items.length}):<br>` +
+        items.map(c => `<div style="margin-top:3px;"><i>${c.label}:</i> ${escapeHtml(c.text)}</div>`).join('') +
+        `</div>`;
+    }
+  }
+  return `
+    <div>
+      <span class="popup-id">#${p.identifier}</span>
+      <span class="popup-restriction"><span class="badge badge-${restr}">${restr}</span></span>
+      <div><strong>${escapeHtml(p.name||'')}</strong></div>
+      <div>${reasons}</div>
+      ${commentsHtml}
+      ${p.otherReasonInfo && !isFreeFormComment(p.otherReasonInfo)
+        ? `<div style="font-size:11px;color:#555;margin-top:3px;">${escapeHtml((p.otherReasonInfo||'').replace(/\\n/g,'<br>'))}</div>`:''}
+      ${p.message && !isFreeFormComment(p.message)
+        ? `<div class="popup-msg">${escapeHtml(p.message)}</div>` : ''}
+      ${commentsHtml ? '' : (p.message ? `<div class="popup-msg">${escapeHtml(p.message)}</div>` : '')}
+      <div style="margin-top:4px;font-size:11px;">
+        Височина: <b>${p.lowerLimit}–${p.upperLimit} м над земята</b>
+      </div>
+      ${applHtml}
+    </div>`;
+}
+
+function escapeHtml(s) {
+  return (s||'').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function isActive(zone) {
+  const apps = zone.properties.applicability || [];
+  for (const a of apps) {
+    if (a.permanent === 'YES') return true;
+    const s = (a.startDateTime || '').slice(0,10);
+    const e = (a.endDateTime || '').slice(0,10);
+    if (s && e && s <= TODAY && TODAY <= e) return true;
+  }
+  return false;
+}
+
+const map = L.map('map', { preferCanvas:true }).setView([42.6977, 23.3219], 11);
+
+const basemaps = {
+  bgmountains: L.tileLayer('https://bgmtile.kade.si/{z}/{x}/{y}.png', {
+    maxZoom: 18, attribution: '© BGMountains (bgmtile.kade.si)'
+  }),
+  opentopo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    maxZoom: 17, subdomains:'abc',
+    attribution: '© OpenTopoMap (CC-BY-SA) | © BGMountains'
+  }),
+  osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap contributors'
+  }),
+};
+basemaps.bgmountains.addTo(map);
+
+document.querySelectorAll('input[name=basemap]').forEach(r => r.addEventListener('change', e => {
+  for (const k in basemaps) map.removeLayer(basemaps[k]);
+  basemaps[e.target.value].addTo(map);
+}));
+
+fetch('zones_geo.json').then(r => r.json()).then(gj => {
+  const counts = { PROHIBITED:0, REQ_AUTHORISATION:0, CONDITIONAL:0, INACTIVE:0, COMMENTS:0 };
+  const layers = {
+    PROHIBITED: L.featureGroup(),
+    REQ_AUTHORISATION: L.featureGroup(),
+    CONDITIONAL: L.featureGroup(),
+    INACTIVE: L.featureGroup(),
+    COMMENTS: L.featureGroup(),
+  };
+
+  // First pass: classify
+  gj.features.forEach(f => {
+    f.properties._active = isActive(f);
+    f.properties._hasComments = zoneHasComments(f);
+    if (!f.properties._active) {
+      counts.INACTIVE++;
+    } else {
+      counts[f.properties.restriction] = (counts[f.properties.restriction]||0) + 1;
+    }
+    if (f.properties._hasComments) counts.COMMENTS++;
+  });
+
+  function styleFn(grp) {
+    if (grp === 'INACTIVE') {
+      return () => ({ color:'#666', weight:1, fillColor:'#888', fillOpacity:0.15,
+        dashArray:'4 4', opacity:.6 });
+    }
+    if (grp === 'COMMENTS') {
+      return () => ({ color:'#d4a017', weight:1.6, fillColor:'#ffd54f', fillOpacity:0.18 });
+    }
+    const c = COLORS[grp];
+    return () => ({ color:c, weight:1.2, fillColor:c, fillOpacity:0.25 });
+  }
+
+  // For each zone decide which group(s) it belongs to, add it (use a regular L.polygon
+  // to avoid re-creating the L.geoJSON layer each time we want to add it to multiple groups)
+  gj.features.forEach(f => {
+    const p = f.properties;
+    const groupKeys = [];
+    if (!p._active)                       groupKeys.push('INACTIVE');
+    else if (p.restriction in layers)     groupKeys.push(p.restriction);
+    if (p._hasComments && p._active)      groupKeys.push('COMMENTS');
+    if (!groupKeys.length) return;
+
+    // Build style for this zone based on FIRST group (priority: real group, not COMMENTS overlay)
+    const primaryGrp = groupKeys.find(g => g !== 'COMMENTS') || 'PROHIBITED';
+    const style = styleFn(primaryGrp);
+
+    // Approximate a multi-ring polygon: original coordinates already GeoJSON [[[lon,lat],...],...]
+    const geom = f.geometry;
+    let polygons;
+    if (geom.type === 'Polygon') {
+      polygons = [geom.coordinates];
+    } else if (geom.type === 'MultiPolygon') {
+      polygons = geom.coordinates;
+    } else {
+      return;
+    }
+    polygons.forEach(rings => {
+      const latlngs = rings.map(ring => ring.map(([lon,lat]) => [lat, lon]));
+      // Outer ring is latlngs[0]; holes (latlngs[1+]) are inverted: pass as second arg
+      const poly = L.polygon(latlngs, style());
+      poly._droneFeature = f;
+      poly.bindPopup(popup(f, true), { maxHeight: 320 });
+      poly.on('mouseover', () => poly.setStyle({ weight:2.5, fillOpacity:0.45 }));
+      poly.on('mouseout',  () => poly.setStyle({ weight:1.2, fillOpacity:0.25 }));
+
+      // Add to each group it belongs to
+      groupKeys.forEach(grp => layers[grp].addLayer(poly));
+    });
+  });
+
+  // Add base layers (PROHIBITED, REQ_AUTHORISATION, CONDITIONAL, INACTIVE) to map
+  ['PROHIBITED','REQ_AUTHORISATION','CONDITIONAL','INACTIVE'].forEach(k => layers[k].addTo(map));
+  // COMMENTS is OFF by default; added via toggle
+
+  // Counts in UI
+  document.getElementById('c-prohibited').textContent  = `(${counts.PROHIBITED||0})`;
+  document.getElementById('c-reqauth').textContent     = `(${counts.REQ_AUTHORISATION||0})`;
+  document.getElementById('c-conditional').textContent = `(${counts.CONDITIONAL||0})`;
+  document.getElementById('c-inactive').textContent    = `(${counts.INACTIVE})`;
+  document.getElementById('c-comments').textContent    = `(${counts.COMMENTS})`;
+
+  // Toggle layer visibility
+  const toggles = {
+    'z-prohibited':  'PROHIBITED',
+    'z-reqauth':     'REQ_AUTHORISATION',
+    'z-conditional': 'CONDITIONAL',
+    'z-inactive':    'INACTIVE',
+    'z-comments':    'COMMENTS',
+  };
+  Object.entries(toggles).forEach(([id, grp]) => {
+    document.getElementById(id).addEventListener('change', e => {
+      if (e.target.checked) map.addLayer(layers[grp]);
+      else map.removeLayer(layers[grp]);
+    });
+  });
+
+    // Fit-to-bounds is intentionally disabled — we keep the initial focus
+  // (София, set by setView above). Re-enable by uncommenting:
+//   // const bounds = L.latLngBounds([]);
+//   // gj.features.forEach(f => { ... });
+//   // if (bounds.isValid()) map.fitBounds(bounds.pad(0.05));
+
+  window._ready = true;
+});
+
+window.flyTo = (lat, lon, name) => {
+  map.flyTo([lat, lon], name === 'Цяла България' ? 7 : 11, { duration: 1.2 });
+};
+</script>
+</body>
+</html>
